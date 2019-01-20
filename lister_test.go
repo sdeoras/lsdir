@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/prometheus/common/log"
 )
 
 func TestLister_List(t *testing.T) {
@@ -17,7 +16,9 @@ func TestLister_List(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer os.RemoveAll(filepath.Join("/tmp", id))
+	defer func() {
+		_ = os.RemoveAll(filepath.Join("/tmp", id))
+	}()
 
 	b := []byte("this is a test")
 
@@ -41,15 +42,69 @@ func TestLister_List(t *testing.T) {
 		}
 	}
 
-	lister := NewLister()
+	lister := NewLister(true, "*")
 
 	files, err := lister.List(filepath.Join("/tmp", id))
 	if err != nil {
-		log.Fatal(err)
+		t.Fatal(err)
 	}
 
 	if len(files) != 15 {
 		t.Fatal("expected 15 files, found:", len(files))
+	}
+
+	for _, file := range files {
+		if _, ok := expectedPaths[file]; !ok {
+			t.Fatal(file, "not found in list")
+		}
+	}
+
+	// test with a pattern
+	lister = NewLister(true, "x*")
+
+	files, err = lister.List(filepath.Join("/tmp", id))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(files) != 5 {
+		t.Fatal("expected 5 files, found:", len(files))
+	}
+
+	for _, file := range files {
+		if _, ok := expectedPaths[file]; !ok {
+			t.Fatal(file, "not found in list")
+		}
+	}
+
+	// test with recursion off
+	lister = NewLister(false, "*")
+
+	files, err = lister.List(filepath.Join("/tmp", id))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(files) != 3 {
+		t.Fatal("expected 3 files, found:", len(files))
+	}
+
+	for _, file := range files {
+		if _, ok := expectedPaths[file]; !ok {
+			t.Fatal(file, "not found in list")
+		}
+	}
+
+	// test with recursion off and a pattern
+	lister = NewLister(false, "x*")
+
+	files, err = lister.List(filepath.Join("/tmp", id))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(files) != 1 {
+		t.Fatal("expected 1 files, found:", len(files))
 	}
 
 	for _, file := range files {
